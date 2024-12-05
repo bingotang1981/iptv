@@ -8,7 +8,7 @@
 package liveurls
 
 import (
-	"Golang/utils"
+	"iptv/utils"
 	"crypto/md5"
 	"encoding/json"
 	"fmt"
