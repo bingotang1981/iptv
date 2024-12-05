@@ -6,9 +6,9 @@
 package main
 
 import (
-	"Golang/list"
-	"Golang/liveurls"
-	"Golang/utils"
+	"iptv/list"
+	"iptv/liveurls"
+	"iptv/utils"
 	"encoding/json"
 	"fmt"
 	"github.com/gin-gonic/gin"
