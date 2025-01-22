@@ -15,6 +15,9 @@ type Tptv struct{}
 
 func (i *Tptv) HandleMainRequest(w http.ResponseWriter, r *http.Request, cdn string, id string, playseek string) {
 
+	//Compatible with TVBox
+	cdn = strings.ReplaceAll(cdn, "/PLTV/8888/", "/PLTV/")
+
 	//If playback, replace PLTV with TVOD
 	if playseek != "" {
 		cdn = cdn + "?playseek=" + playseek
@@ -174,7 +177,7 @@ func handleTptvTsHTTPResponse(requestURL string, w http.ResponseWriter) (string,
 	}
 
 	if err != nil {
-
+		
 		return "", "", err
 	}
 
