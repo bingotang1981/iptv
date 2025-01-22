@@ -16,12 +16,30 @@ type Itv struct{}
 
 var (
 	hostMappings = map[string]string{
-		"cache.ott.ystenlive.itv.cmvideo.cn": "feiyangdigital.tg.ystenlive.ottdns.com",
-		"cache.ott.bestlive.itv.cmvideo.cn":  "feiyangdigital.tg.bestlive.ottdns.com",
-		"cache.ott.wasulive.itv.cmvideo.cn":  "feiyangdigital.tg.wasulive.ottdns.com",
-		"cache.ott.fifalive.itv.cmvideo.cn":  "feiyangdigital.tg.fifalive.ottdns.com",
-		"cache.ott.hnbblive.itv.cmvideo.cn":  "feiyangdigital.tg.hnbblive.ottdns.com",
+		"cache.ott.ystenlive.itv.cmvideo.cn": "ystenlive.minitown.win",
+		"cache.ott.bestlive.itv.cmvideo.cn":  "bestlive.minitown.win",
+		"cache.ott.wasulive.itv.cmvideo.cn":  "wasulive.minitown.win",
+		"cache.ott.fifalive.itv.cmvideo.cn":  "fifalive.minitown.win",
+		"cache.ott.hnbblive.itv.cmvideo.cn":  "hnbblive.minitown.win",
 	}
+
+	// hostMappings = map[string]string{
+	// 	"cache.ott.ystenlive.itv.cmvideo.cn": "pixman.io.ystenlive.dnsany.com",
+	// 	"cache.ott.bestlive.itv.cmvideo.cn":  "pixman.io.bestlive.dnsany.com",
+	// 	"cache.ott.wasulive.itv.cmvideo.cn":  "pixman.io.wasulive.dnsany.com",
+	// 	"cache.ott.fifalive.itv.cmvideo.cn":  "pixman.io.fifalive.dnsany.com",
+	// 	"cache.ott.hnbblive.itv.cmvideo.cn":  "pixman.io.hnbblive.dnsany.com",
+	// }
+
+	// hostMappings = map[string]string{
+	// 	"cache.ott.ystenlive.itv.cmvideo.cn": "feiyangdigital.tg.ystenlive.ottdns.com",
+	// 	"cache.ott.bestlive.itv.cmvideo.cn":  "feiyangdigital.tg.bestlive.ottdns.com",
+	// 	"cache.ott.wasulive.itv.cmvideo.cn":  "feiyangdigital.tg.wasulive.ottdns.com",
+	// 	"cache.ott.fifalive.itv.cmvideo.cn":  "feiyangdigital.tg.fifalive.ottdns.com",
+	// 	"cache.ott.hnbblive.itv.cmvideo.cn":  "feiyangdigital.tg.hnbblive.ottdns.com",
+	// }
+
+
 	programList = map[string]string{
 		"wasusyt/6000000001000029752.m3u8":     "http://gslbserv.itv.cmvideo.cn:80/6000000001000029752/1.m3u8?channel-id=wasusyt&Contentid=6000000001000029752&livemode=1&stbId=003803ff00010060180758b42d777238",
 		"bestzb/5000000004000002226.m3u8":      "http://gslbserv.itv.cmvideo.cn:80/5000000004000002226/1.m3u8?channel-id=bestzb&Contentid=5000000004000002226&livemode=1&stbId=3",
@@ -321,6 +339,7 @@ func getHTTPResponse(requestURL string) (string, string, error) {
 		// },
 	}
 
+
 	fmt.Println("RequestURL: " + requestURL)
 	resp, err := client.Get(requestURL)
 
@@ -355,6 +374,8 @@ func getHTTPResponse(requestURL string) (string, string, error) {
 	if mappedHost != "" {
 		updateCacheTime(mappedHost, successCacheTime) // 成功获取响应后缓存IP
 	}
+
+	
 
 	return body, redirectURL, nil
 }
