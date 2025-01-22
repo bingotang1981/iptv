@@ -19,7 +19,7 @@ import (
 	"time"
 )
 
-const VERSION = "1.0.3"
+const VERSION = "1.0.5"
 
 var filePath = ""
 
@@ -158,7 +158,7 @@ func setupRouter(adurl string) *gin.Engine {
 		case "tv":
 			mainm3uobj := &list.Mainm3u{}
 			c.Writer.Header().Set("Content-Type", "application/octet-stream")
-			c.Writer.Header().Set("Content-Disposition", "attachment; filename=tv.m3u")
+			c.Writer.Header().Set("Content-Disposition", "attachment; filename="+rid)
 			mainm3uobj.GetMainM3u(c.Writer, filePath+"/"+rid)
 		case "itv":
 			itvobj := &liveurls.Itv{}
