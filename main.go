@@ -6,20 +6,22 @@
 package main
 
 import (
+	"encoding/json"
+	"fmt"
 	"iptv/list"
 	"iptv/liveurls"
 	"iptv/utils"
-	"encoding/json"
-	"fmt"
-	"github.com/gin-gonic/gin"
 	"net/http"
 	"net/url"
 	"os"
 	"strconv"
+	"strings"
 	"time"
+
+	"github.com/gin-gonic/gin"
 )
 
-const VERSION = "1.0.5"
+const VERSION = "1.0.6"
 
 var filePath = ""
 
@@ -164,8 +166,15 @@ func setupRouter(adurl string) *gin.Engine {
 			itvobj := &liveurls.Itv{}
 			ts := utils.DefaultQuery(c.Request, "ts", "")
 			cdn := utils.DefaultQuery(c.Request, "cdn", "")
+			playseek := utils.DefaultQuery(c.Request, "playseek", "")
+			ind := strings.Index(cdn, "?playseek=")
+			//rebuild playseek and cdn
+			if ind > -1 {
+				playseek = cdn[ind+10:]
+				cdn = cdn[0:ind]
+			}
 			if ts == "" {
-				itvobj.HandleMainRequest(c.Writer, c.Request, cdn, rid)
+				itvobj.HandleMainRequest(c.Writer, c.Request, cdn, rid, playseek)
 			} else {
 				itvobj.HandleTsRequest(c.Writer, ts)
 			}
@@ -174,6 +183,12 @@ func setupRouter(adurl string) *gin.Engine {
 			ts := utils.DefaultQuery(c.Request, "ts", "")
 			cdn := utils.DefaultQuery(c.Request, "cdn", "")
 			playseek := utils.DefaultQuery(c.Request, "playseek", "")
+			ind := strings.Index(cdn, "?playseek=")
+			//rebuild playseek and cdn
+			if ind > -1 {
+				playseek = cdn[ind+10:]
+				cdn = cdn[0:ind]
+			}
 			if ts == "" {
 				tptvobj.HandleMainRequest(c.Writer, c.Request, cdn, rid, playseek)
 			} else {
