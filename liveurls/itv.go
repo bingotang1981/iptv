@@ -7,6 +7,7 @@ import (
 	"net"
 	"net/http"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -38,7 +39,6 @@ var (
 	// 	"cache.ott.fifalive.itv.cmvideo.cn":  "feiyangdigital.tg.fifalive.ottdns.com",
 	// 	"cache.ott.hnbblive.itv.cmvideo.cn":  "feiyangdigital.tg.hnbblive.ottdns.com",
 	// }
-
 
 	programList = map[string]string{
 		"wasusyt/6000000001000029752.m3u8":     "http://gslbserv.itv.cmvideo.cn:80/6000000001000029752/1.m3u8?channel-id=wasusyt&Contentid=6000000001000029752&livemode=1&stbId=003803ff00010060180758b42d777238",
@@ -242,7 +242,7 @@ type cacheEntry struct {
 
 const MYSEPERETOR = "ThisIsMySeperator"
 
-func (i *Itv) HandleMainRequest(w http.ResponseWriter, r *http.Request, cdn string, id string) {
+func (i *Itv) HandleMainRequest(w http.ResponseWriter, r *http.Request, cdn string, id string, playseek string) {
 	// key := cdn + "/" + id
 	// startUrl, ok := programList[key]
 	// if !ok {
@@ -251,30 +251,131 @@ func (i *Itv) HandleMainRequest(w http.ResponseWriter, r *http.Request, cdn stri
 	// }
 
 	//Build starturl from cdn and id
+	//Compatible with TVBox
+	cdn = strings.ReplaceAll(cdn, "/PLTV/8888/", "")
+	cdn = strings.ReplaceAll(cdn, "/PLTV/", "")
+	cdn = strings.ReplaceAll(cdn, "/TVOD/8888/", "")
+	cdn = strings.ReplaceAll(cdn, "/TVOD/", "")
 	myid := strings.ReplaceAll(id, ".m3u8", "")
-	startUrl := "http://gslbserv.itv.cmvideo.cn:80/" + myid + "/1.m3u8?channel-id=" + cdn + "&Contentid=" + myid + "&livemode=1&stbId=003803ff00010060180758b42d777238"
 
-	data, redirectURL, err := getHTTPResponse(startUrl)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+	if playseek == "" {
+		startUrl := "http://gslbserv.itv.cmvideo.cn:80/" + myid + "/1.m3u8?channel-id=" + cdn + "&Contentid=" + myid + "&livemode=1&stbId=003803ff00010060180758b42d777238"
+
+		data, redirectURL, err := getHTTPResponse(startUrl)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		redirectPrefix := redirectURL[:strings.LastIndex(redirectURL, "/")+1]
+
+		// 替换TS文件的链接
+		golang := "http://" + r.Host + r.URL.Path
+
+		re := regexp.MustCompile(`((?i).*?\.ts)`)
+		data = re.ReplaceAllStringFunc(data, func(match string) string {
+			return golang + "?ts=" + redirectPrefix + match
+		})
+
+		// 将&替换为$
+		data = strings.ReplaceAll(data, "&", MYSEPERETOR)
+
+		w.Header().Set("Content-Disposition", "attachment;filename="+id)
+		w.WriteHeader(http.StatusOK) // Set the status code to 200
+		w.Write([]byte(data))        // Write the response body
+	} else {
+		startUrl := "http://gslbserv.itv.cmvideo.cn:80/" + myid + "/1.m3u8?channel-id=" + cdn + "&Contentid=" + myid + "&livemode=1&stbId=003803ff00010060180758b42d777238&playseek=" + playseek
+
+		data, redirectURL, err := getHTTPResponse(startUrl)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		redirectPrefix := redirectURL[:strings.LastIndex(redirectURL, "/")+1]
+
+		// fmt.Println("redirectPrefix: ", redirectPrefix)
+		// fmt.Println("data: ", data)
+
+		//Extract one piece from the reply
+		sample := ""
+		start := strings.Index(data, "#EXTINF:10,")
+		if start > -1 {
+			mydata := data[start+12:]
+			end := strings.Index(mydata, "#EXTINF:10,")
+			if end > -1 {
+				sample = mydata[0:end]
+				sample = strings.ReplaceAll(sample, "&playseek="+playseek, "")
+			}
+		}
+
+		if sample == "" {
+			http.Error(w, "Unable to build the playback url", http.StatusInternalServerError)
+			return
+		}
+
+		ind := strings.Index(sample, ".ts?")
+
+		postfix := ""
+
+		if ind < 0 {
+			http.Error(w, "Unable to build the playback url", http.StatusInternalServerError)
+			return
+		}
+
+		postfix = sample[ind+4:]
+
+		prefix := "http://" + r.Host + r.URL.Path + "?ts=" + redirectPrefix
+
+		ind = strings.Index(playseek, "-")
+		if ind < 0 {
+			http.Error(w, "Unable to build the playback url", http.StatusInternalServerError)
+			return
+		}
+
+		//build the reply
+		result := "#EXTM3U\n#EXT-X-VERSION:3\n#EXT-X-TARGETDURATION:10\n"
+
+		startime := playseek[0:ind]
+		endtime := playseek[ind+1:]
+
+		startdate := startime[0:8]
+		starthour, _ := strconv.Atoi(startime[8:10])
+		startmin, _ := strconv.Atoi(startime[10:12])
+
+		enddate := endtime[0:8]
+		endthour, _ := strconv.Atoi(endtime[8:10])
+		endmin, _ := strconv.Atoi(endtime[10:12])
+
+		nid := strings.ReplaceAll(id, ".m3u8", "")
+
+		if startdate == enddate {
+			smin := starthour*60 + startmin
+			emin := endthour*60 + endmin
+
+			for i := smin; i < emin; i++ {
+				result += buildPlaybackPiece(startdate, i, nid, prefix, postfix)
+			}
+		} else {
+
+			smin := starthour*60 + startmin
+			emin := 1440
+			for i := smin; i < emin; i++ {
+				result += buildPlaybackPiece(startdate, i, nid, prefix, postfix)
+			}
+
+			//second day
+			smin = 0
+			emin = endthour*60 + endmin
+			for i := smin; i < emin; i++ {
+				result += buildPlaybackPiece(enddate, i, nid, prefix, postfix)
+			}
+		}
+
+		result += "#EXT-X-ENDLIST\n"
+
+		w.Header().Set("Content-Disposition", "attachment;filename="+id)
+		w.WriteHeader(http.StatusOK) // Set the status code to 200
+		w.Write([]byte(result))      // Write the response body
 	}
-	redirectPrefix := redirectURL[:strings.LastIndex(redirectURL, "/")+1]
-
-	// 替换TS文件的链接
-	golang := "http://" + r.Host + r.URL.Path
-
-	re := regexp.MustCompile(`((?i).*?\.ts)`)
-	data = re.ReplaceAllStringFunc(data, func(match string) string {
-		return golang + "?ts=" + redirectPrefix + match
-	})
-
-	// 将&替换为$
-	data = strings.ReplaceAll(data, "&", MYSEPERETOR)
-
-	w.Header().Set("Content-Disposition", "attachment;filename="+id)
-	w.WriteHeader(http.StatusOK) // Set the status code to 200
-	w.Write([]byte(data))        // Write the response body
 }
 
 func (i *Itv) HandleTsRequest(w http.ResponseWriter, ts string) {
@@ -339,7 +440,6 @@ func getHTTPResponse(requestURL string) (string, string, error) {
 		// },
 	}
 
-
 	fmt.Println("RequestURL: " + requestURL)
 	resp, err := client.Get(requestURL)
 
@@ -374,8 +474,6 @@ func getHTTPResponse(requestURL string) (string, string, error) {
 	if mappedHost != "" {
 		updateCacheTime(mappedHost, successCacheTime) // 成功获取响应后缓存IP
 	}
-
-	
 
 	return body, redirectURL, nil
 }
@@ -512,4 +610,22 @@ func readResponseBody(resp *http.Response) (string, error) {
 		return "", err
 	}
 	return builder.String(), nil
+}
+
+func buildPlaybackPiece(date string, minutes int, id string, prefix string, postfix string) string {
+	var hour int = minutes / 60
+	var min1 = (minutes % 60) / 10
+	var min2 = minutes % 10
+
+	str := ""
+	ho := "00" + strconv.Itoa(hour)
+	ho = ho[len(ho)-2:]
+	for k := 1; k < 7; k++ {
+		str += "#EXTINF:10,\n"
+		str += prefix + id + "_1500000_" + date + "_" + ho + strconv.Itoa(min1) + "000_" + strconv.Itoa(min2*6+k) + ".ts?" + postfix
+	}
+
+	str = strings.ReplaceAll(str, "&", MYSEPERETOR)
+
+	return str
 }
